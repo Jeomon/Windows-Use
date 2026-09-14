@@ -11,6 +11,7 @@ from __future__ import annotations
 PROVIDERS: list[tuple[str, str]] = [
     ("Groq", "groq"),
     ("OpenAI", "openai"),
+    ("Atlas Cloud", "atlas_cloud"),
     ("Anthropic", "anthropic"),
     ("Google", "google"),
     ("Ollama", "ollama"),
@@ -53,6 +54,9 @@ MODELS: dict[str, list[tuple[str, str]]] = {
         ("GPT-4o mini", "gpt-4o-mini"),
         ("GPT-4 Turbo", "gpt-4-turbo"),
         ("GPT-3.5 Turbo", "gpt-3.5-turbo"),
+    ],
+    "atlas_cloud": [
+        ("OpenAI GPT-4.1 mini", "openai/gpt-4.1-mini"),
     ],
     "perplexity": [
         ("GPT-5.4 (recommended)", "openai/gpt-5.4"),
@@ -174,6 +178,7 @@ MODELS: dict[str, list[tuple[str, str]]] = {
 PROVIDERS_REQUIRING_API_KEY: set[str] = {
     "groq",
     "openai",
+    "atlas_cloud",
     "anthropic",
     "google",
     "mistral",
@@ -196,6 +201,7 @@ def provider_requires_api_key(provider_key: str) -> bool:
 PROVIDER_DISPLAY: dict[str, str] = {
     "groq": "Groq",
     "openai": "OpenAI",
+    "atlas_cloud": "Atlas Cloud",
     "anthropic": "Anthropic",
     "google": "Google",
     "ollama": "Ollama",
