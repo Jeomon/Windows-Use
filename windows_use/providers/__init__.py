@@ -14,6 +14,7 @@ Shared base protocols and data models:
 # Base protocols & data models
 # LLM providers
 from windows_use.providers.anthropic import ChatAnthropic
+from windows_use.providers.atlas_cloud import ChatAtlasCloud
 from windows_use.providers.azure_openai import ChatAzureOpenAI
 from windows_use.providers.base import BaseChatLLM, BaseSTT, BaseTTS
 from windows_use.providers.cerebras import ChatCerebras
@@ -73,6 +74,7 @@ __all__ = [
     "ToolCall",
     # LLM providers
     "ChatAnthropic",
+    "ChatAtlasCloud",
     "ChatGoogle",
     "ChatOpenAI",
     "ChatOllama",

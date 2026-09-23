@@ -149,6 +149,7 @@ windows-use
 |--------------|-----------------------------------------------|
 | Anthropic    | `from windows_use.providers.anthropic import ChatAnthropic` |
 | OpenAI       | `from windows_use.providers.openai import ChatOpenAI`       |
+| Atlas Cloud  | `from windows_use.providers.atlas_cloud import ChatAtlasCloud` |
 | Google       | `from windows_use.providers.google import ChatGoogle`       |
 | Groq         | `from windows_use.providers.groq import ChatGroq`           |
 | Ollama       | `from windows_use.providers.ollama import ChatOllama`       |
@@ -160,6 +161,14 @@ windows-use
 | LiteLLM      | `from windows_use.providers.litellm import ChatLiteLLM`     |
 | NVIDIA       | `from windows_use.providers.nvidia import ChatNvidia`       |
 | vLLM         | `from windows_use.providers.vllm import ChatVLLM`           |
+
+Atlas Cloud uses its OpenAI-compatible API and reads `ATLAS_CLOUD_API_KEY` by default:
+
+```python
+from windows_use.providers.atlas_cloud import ChatAtlasCloud
+
+llm = ChatAtlasCloud(model="openai/gpt-4.1-mini")
+```
 
 ## 🧰 Agent Configuration
 
