@@ -24,7 +24,7 @@ class ChatDeepSeek(ChatOpenAI):
         timeout: float = 600.0,
         max_retries: int = 2,
         temperature: float | None = None,
-        reasoning_effort: Literal['none','low','medium','high','xhigh','max'] = "high",
+        reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "high",
         thinking: bool = False,
         **kwargs,
     ):

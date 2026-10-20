@@ -138,7 +138,9 @@ class ChatCerebras(BaseChatLLM):
                 cerebras_messages.append(
                     {
                         "role": "assistant",
-                        "content": self._format_assistant_content(None, thinking) if thinking else None,
+                        "content": self._format_assistant_content(None, thinking)
+                        if thinking
+                        else None,
                         "tool_calls": [tool_call],
                     }
                 )

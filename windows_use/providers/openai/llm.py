@@ -50,7 +50,7 @@ class ChatOpenAI(BaseChatLLM):
         base_url: str | None = None,
         timeout: float = 600.0,
         max_retries: int = 2,
-        reasoning_effort: Literal['none','low','medium','high','xhigh'] = "high",
+        reasoning_effort: Literal["none", "low", "medium", "high", "xhigh"] = "high",
         temperature: float | None = None,
         extra_body: dict | None = None,
         **kwargs,
@@ -140,7 +140,11 @@ class ChatOpenAI(BaseChatLLM):
                     "type": "function",
                     "function": {"name": msg.name, "arguments": json.dumps(msg.params)},
                 }
-                assistant_msg: dict = {"role": "assistant", "content": None, "tool_calls": [tool_call]}
+                assistant_msg: dict = {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [tool_call],
+                }
                 if getattr(msg, "thinking", None):
                     assistant_msg["reasoning_content"] = msg.thinking
                 openai_messages.append(assistant_msg)
@@ -267,10 +271,10 @@ class ChatOpenAI(BaseChatLLM):
 
         if json_mode:
             params["response_format"] = {"type": "json_object"}
-        
+
         if self.extra_body:
             params["extra_body"] = self.extra_body
-        
+
         if self._is_reasoning_model():
             params["reasoning_effort"] = self.reasoning_effort
 

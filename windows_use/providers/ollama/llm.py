@@ -323,7 +323,11 @@ class ChatOllama(BaseChatLLM):
             message = chunk.get("message", {})
             # Ollama may send usage in the final chunk
             if "eval_count" in chunk or "prompt_eval_count" in chunk:
-                thinking_tokens = max(1, sum(len(t) for t in accumulated_thinking) // 4) if accumulated_thinking else None
+                thinking_tokens = (
+                    max(1, sum(len(t) for t in accumulated_thinking) // 4)
+                    if accumulated_thinking
+                    else None
+                )
                 usage = TokenUsage(
                     prompt_tokens=chunk.get("prompt_eval_count", 0),
                     completion_tokens=chunk.get("eval_count", 0),
@@ -362,7 +366,9 @@ class ChatOllama(BaseChatLLM):
                     yield LLMStreamEvent(type=LLMStreamEventType.THINK_END)
                     think_started = False
                 thinking_content = "".join(accumulated_thinking) or None
-                thinking_obj = Thinking(content=thinking_content, signature=None) if thinking_content else None
+                thinking_obj = (
+                    Thinking(content=thinking_content, signature=None) if thinking_content else None
+                )
                 yield LLMStreamEvent(
                     type=LLMStreamEventType.TOOL_CALL,
                     tool_call=ToolCall(
@@ -422,7 +428,11 @@ class ChatOllama(BaseChatLLM):
             message = chunk.get("message", {})
             # Ollama may send usage in the final chunk
             if "eval_count" in chunk or "prompt_eval_count" in chunk:
-                thinking_tokens = max(1, sum(len(t) for t in accumulated_thinking) // 4) if accumulated_thinking else None
+                thinking_tokens = (
+                    max(1, sum(len(t) for t in accumulated_thinking) // 4)
+                    if accumulated_thinking
+                    else None
+                )
                 usage = TokenUsage(
                     prompt_tokens=chunk.get("prompt_eval_count", 0),
                     completion_tokens=chunk.get("eval_count", 0),
@@ -461,7 +471,9 @@ class ChatOllama(BaseChatLLM):
                     yield LLMStreamEvent(type=LLMStreamEventType.THINK_END)
                     think_started = False
                 thinking_content = "".join(accumulated_thinking) or None
-                thinking_obj = Thinking(content=thinking_content, signature=None) if thinking_content else None
+                thinking_obj = (
+                    Thinking(content=thinking_content, signature=None) if thinking_content else None
+                )
                 yield LLMStreamEvent(
                     type=LLMStreamEventType.TOOL_CALL,
                     tool_call=ToolCall(
