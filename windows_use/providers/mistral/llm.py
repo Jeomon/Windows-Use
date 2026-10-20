@@ -4,7 +4,10 @@ import os
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, overload
 
-from mistralai.client import Mistral
+try:  # mistralai 2.x moved the client into the mistralai.client package
+    from mistralai.client import Mistral
+except ImportError:  # mistralai 1.x exports it from the top level
+    from mistralai import Mistral
 from pydantic import BaseModel
 
 from windows_use.messages import (
