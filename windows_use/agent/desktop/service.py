@@ -29,7 +29,6 @@ from windows_use.agent.tree.views import BoundingBox, TreeElementNode, TreeState
 from windows_use.vdm.core import get_all_desktops, get_current_desktop, is_window_on_current_desktop
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 class Desktop:

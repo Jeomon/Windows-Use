@@ -1,8 +1,11 @@
+import logging
 import weakref
 
 import comtypes
 
 from windows_use.uia.core import _AutomationClient
+
+logger = logging.getLogger(__name__)
 
 # Get UIA Interface for COM definitions
 uia_client = _AutomationClient.instance()
@@ -22,7 +25,7 @@ class FocusChangedEventHandler(comtypes.COMObject):
             if parent and parent._focus_callback:
                 parent._focus_callback(sender)
         except Exception as e:
-            print(f"Error in focus callback: {e}")
+            logger.exception("Error in focus callback: %s", e)
         return 0  # S_OK
 
 
@@ -39,7 +42,7 @@ class StructureChangedEventHandler(comtypes.COMObject):
             if parent and parent._structure_callback:
                 parent._structure_callback(sender, changeType, runtimeId)
         except Exception as e:
-            print(f"Error in structure callback: {e}")
+            logger.exception("Error in structure callback: %s", e)
         return 0  # S_OK
 
 
@@ -56,5 +59,5 @@ class PropertyChangedEventHandler(comtypes.COMObject):
             if parent and parent._property_callback:
                 parent._property_callback(sender, propertyId, newValue)
         except Exception as e:
-            print(f"Error in property callback: {e}")
+            logger.exception("Error in property callback: %s", e)
         return 0  # S_OK
