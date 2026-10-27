@@ -12,6 +12,7 @@ PROVIDERS: list[tuple[str, str]] = [
     ("Groq", "groq"),
     ("OpenAI", "openai"),
     ("Atlas Cloud", "atlas_cloud"),
+    ("Cheaper Inference", "cheaper_inference"),
     ("Anthropic", "anthropic"),
     ("Google", "google"),
     ("Ollama", "ollama"),
@@ -57,6 +58,13 @@ MODELS: dict[str, list[tuple[str, str]]] = {
     ],
     "atlas_cloud": [
         ("OpenAI GPT-4.1 mini", "openai/gpt-4.1-mini"),
+    ],
+    "cheaper_inference": [
+        ("GPT-5.4 mini (recommended)", "gpt-5.4-mini"),
+        ("GPT-5.4", "gpt-5.4"),
+        ("Claude Sonnet 5", "claude-sonnet-5"),
+        ("DeepSeek V4 Flash", "deepseek-v4-flash"),
+        ("GLM-5.3", "glm-5.3"),
     ],
     "perplexity": [
         ("GPT-5.4 (recommended)", "openai/gpt-5.4"),
@@ -179,6 +187,7 @@ PROVIDERS_REQUIRING_API_KEY: set[str] = {
     "groq",
     "openai",
     "atlas_cloud",
+    "cheaper_inference",
     "anthropic",
     "google",
     "mistral",
@@ -202,6 +211,7 @@ PROVIDER_DISPLAY: dict[str, str] = {
     "groq": "Groq",
     "openai": "OpenAI",
     "atlas_cloud": "Atlas Cloud",
+    "cheaper_inference": "Cheaper Inference",
     "anthropic": "Anthropic",
     "google": "Google",
     "ollama": "Ollama",

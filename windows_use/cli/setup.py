@@ -371,6 +371,10 @@ def create_llm(provider: str, model: str, api_key: str | None = None, base_url: 
         from windows_use.providers.atlas_cloud import ChatAtlasCloud
 
         return ChatAtlasCloud(model=model, api_key=key, base_url=base_url)
+    if provider == "cheaper_inference":
+        from windows_use.providers.cheaper_inference import ChatCheaperInference
+
+        return ChatCheaperInference(model=model, api_key=key, base_url=base_url)
     if provider == "anthropic":
         from windows_use.providers.anthropic import ChatAnthropic
 
@@ -756,6 +760,7 @@ def _env_api_key_for_provider(provider: str) -> str | None:
         "groq": "GROQ_API_KEY",
         "openai": "OPENAI_API_KEY",
         "atlas_cloud": "ATLAS_CLOUD_API_KEY",
+        "cheaper_inference": "CHEAPER_INFERENCE_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
         "google": "GEMINI_API_KEY",  # or GOOGLE_API_KEY
         "mistral": "MISTRAL_API_KEY",

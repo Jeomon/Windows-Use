@@ -150,6 +150,7 @@ windows-use
 | Anthropic    | `from windows_use.providers.anthropic import ChatAnthropic` |
 | OpenAI       | `from windows_use.providers.openai import ChatOpenAI`       |
 | Atlas Cloud  | `from windows_use.providers.atlas_cloud import ChatAtlasCloud` |
+| Cheaper Inference | `from windows_use.providers.cheaper_inference import ChatCheaperInference` |
 | Google       | `from windows_use.providers.google import ChatGoogle`       |
 | Groq         | `from windows_use.providers.groq import ChatGroq`           |
 | Ollama       | `from windows_use.providers.ollama import ChatOllama`       |
@@ -168,6 +169,14 @@ Atlas Cloud uses its OpenAI-compatible API and reads `ATLAS_CLOUD_API_KEY` by de
 from windows_use.providers.atlas_cloud import ChatAtlasCloud
 
 llm = ChatAtlasCloud(model="openai/gpt-4.1-mini")
+```
+
+Cheaper Inference uses its OpenAI-compatible API and reads `CHEAPER_INFERENCE_API_KEY` by default:
+
+```python
+from windows_use.providers.cheaper_inference import ChatCheaperInference
+
+llm = ChatCheaperInference(model="gpt-5.4-mini")
 ```
 
 ## 🧰 Agent Configuration
