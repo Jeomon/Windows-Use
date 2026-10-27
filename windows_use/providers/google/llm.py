@@ -3,7 +3,7 @@ import logging
 import os
 import uuid
 from collections.abc import AsyncIterator, Iterator
-from typing import Any, overload, Literal
+from typing import Any, Literal, overload
 
 from google import genai
 from google.genai import types

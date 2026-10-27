@@ -130,7 +130,11 @@ class ChatGroq(BaseChatLLM):
                     "type": "function",
                     "function": {"name": msg.name, "arguments": json.dumps(msg.params)},
                 }
-                assistant_msg: dict = {"role": "assistant", "content": None, "tool_calls": [tool_call]}
+                assistant_msg: dict = {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [tool_call],
+                }
                 if getattr(msg, "thinking", None):
                     assistant_msg["reasoning"] = msg.thinking
                 groq_messages.append(assistant_msg)
