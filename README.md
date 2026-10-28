@@ -151,6 +151,7 @@ windows-use
 | OpenAI       | `from windows_use.providers.openai import ChatOpenAI`       |
 | Atlas Cloud  | `from windows_use.providers.atlas_cloud import ChatAtlasCloud` |
 | Cheaper Inference | `from windows_use.providers.cheaper_inference import ChatCheaperInference` |
+| Opper        | `from windows_use.providers.opper import ChatOpper`         |
 | Google       | `from windows_use.providers.google import ChatGoogle`       |
 | Groq         | `from windows_use.providers.groq import ChatGroq`           |
 | Ollama       | `from windows_use.providers.ollama import ChatOllama`       |
@@ -177,6 +178,14 @@ Cheaper Inference uses its OpenAI-compatible API and reads `CHEAPER_INFERENCE_AP
 from windows_use.providers.cheaper_inference import ChatCheaperInference
 
 llm = ChatCheaperInference(model="gpt-5.4-mini")
+```
+
+Opper uses its OpenAI-compatible API and reads `OPPER_API_KEY` by default:
+
+```python
+from windows_use.providers.opper import ChatOpper
+
+llm = ChatOpper(model="claude-sonnet-4-6")
 ```
 
 ## 🧰 Agent Configuration
