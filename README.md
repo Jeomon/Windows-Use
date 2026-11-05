@@ -181,8 +181,8 @@ llm = ChatCheaperInference(model="gpt-5.4-mini")
 ```
 
 cheapaimodel uses its OpenAI-compatible API and reads `CHEAPAIMODEL_API_KEY` by default
-(keys at https://console.cheapaimodel.ai/keys). The default `deepseek-v4-1-flash` is text only;
-with `use_vision=True`, use a model that accepts images, such as `kimi-k3` or `grok-4.7`:
+(keys at https://console.cheapaimodel.ai/keys). The default `deepseek-v4-1-flash` accepts images,
+so it works with `use_vision=True`; `glm-5.3` is the one text-only model:
 
 ```python
 from windows_use.providers.cheapaimodel import ChatCheapAIModel
