@@ -151,6 +151,7 @@ windows-use
 | OpenAI       | `from windows_use.providers.openai import ChatOpenAI`       |
 | Atlas Cloud  | `from windows_use.providers.atlas_cloud import ChatAtlasCloud` |
 | Cheaper Inference | `from windows_use.providers.cheaper_inference import ChatCheaperInference` |
+| cheapaimodel | `from windows_use.providers.cheapaimodel import ChatCheapAIModel` |
 | Google       | `from windows_use.providers.google import ChatGoogle`       |
 | Groq         | `from windows_use.providers.groq import ChatGroq`           |
 | Ollama       | `from windows_use.providers.ollama import ChatOllama`       |
@@ -177,6 +178,16 @@ Cheaper Inference uses its OpenAI-compatible API and reads `CHEAPER_INFERENCE_AP
 from windows_use.providers.cheaper_inference import ChatCheaperInference
 
 llm = ChatCheaperInference(model="gpt-5.4-mini")
+```
+
+cheapaimodel uses its OpenAI-compatible API and reads `CHEAPAIMODEL_API_KEY` by default
+(keys at https://console.cheapaimodel.ai/keys). The default `deepseek-v4-1-flash` is text only;
+with `use_vision=True`, use a model that accepts images, such as `kimi-k3` or `grok-4.7`:
+
+```python
+from windows_use.providers.cheapaimodel import ChatCheapAIModel
+
+llm = ChatCheapAIModel(model="deepseek-v4-1-flash")
 ```
 
 ## 🧰 Agent Configuration
