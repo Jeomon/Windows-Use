@@ -8,7 +8,6 @@ import threading
 import time
 
 import typer
-from dotenv import load_dotenv
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 
@@ -17,11 +16,12 @@ from windows_use.cli.config import (
     apply_logging_config,
     get_active_config,
     get_log_level,
+    load_env_vars,
     save_logging_config,
 )
 from windows_use.cli.registry import PROVIDER_DISPLAY, get_provider_display
 
-load_dotenv()
+load_env_vars()
 
 
 # Dot animation: filled dot moves left to right •○○ -> ○•○ -> ○○•

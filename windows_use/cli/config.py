@@ -10,12 +10,20 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from dotenv import load_dotenv
+
+if sys.platform == "win32":
+    import winreg
+else:  # pragma: no cover - non-Windows platforms
+    winreg = None  # type: ignore[assignment]
 
 WINDOWS_USE_DIR = Path.home() / ".windows-use"
 CONFIG_FILE = WINDOWS_USE_DIR / "config.json"
@@ -295,3 +303,63 @@ def apply_logging_config(level: str | None = None) -> int:
     logging.getLogger("windows_use").setLevel(numeric_level)
     logging.getLogger("windows_use.speech.service").setLevel(numeric_level)
     return numeric_level
+
+
+# --- Environment variable loading (project .env + Windows User/System registry) ---
+
+_WINDOWS_ENV_LOCATIONS = (
+    ("HKEY_CURRENT_USER", r"Environment"),
+    (
+        "HKEY_LOCAL_MACHINE",
+        r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+    ),
+)
+
+
+def _read_windows_registry_env(root_name: str, subkey: str) -> dict[str, str]:
+    """Read environment variables from a Windows registry hive/subkey."""
+    if winreg is None:
+        return {}
+    root = getattr(winreg, root_name, None)
+    if root is None:
+        return {}
+    env_vars: dict[str, str] = {}
+    try:
+        with winreg.OpenKey(root, subkey) as key:
+            index = 0
+            while True:
+                try:
+                    name, value, value_type = winreg.EnumValue(key, index)
+                except OSError:
+                    break
+                index += 1
+                if isinstance(name, str) and isinstance(value, str) and value:
+                    if value_type == getattr(winreg, "REG_EXPAND_SZ", 2):
+                        value = os.path.expandvars(value)
+                    env_vars[name] = value
+    except OSError:
+        return {}
+    return env_vars
+
+
+def load_env_vars() -> None:
+    """Load env vars from project .env, then Windows User and System registry.
+
+    Precedence (highest to lowest): existing process env > project .env >
+    Windows User env > Windows System env. Existing os.environ entries are
+    never overwritten.
+    """
+    load_dotenv()
+    for root_name, subkey in _WINDOWS_ENV_LOCATIONS:
+        for name, value in _read_windows_registry_env(root_name, subkey).items():
+            os.environ.setdefault(name, value)
+
+
+def get_env_var(name: str, default: str | None = None) -> str | None:
+    """Get an environment variable, falling back to project .env and Windows User/System env."""
+    val = os.environ.get(name)
+    if val:
+        return val
+    load_env_vars()
+    val = os.environ.get(name)
+    return val if val else default
