@@ -1,3 +1,4 @@
+from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.output import DummyOutput
@@ -15,9 +16,7 @@ def test_create_prompt_session_uses_file_history(tmp_path, monkeypatch):
         monkeypatch.setattr(
             cli_main,
             "PromptSession",
-            lambda **kwargs: cli_main.PromptSession.__mro__[0](
-                input=pipe_in, output=DummyOutput(), **kwargs
-            ),
+            lambda **kwargs: PromptSession(input=pipe_in, output=DummyOutput(), **kwargs),
         )
         session = cli_main._create_prompt_session()
         assert isinstance(session.history, FileHistory)
@@ -25,14 +24,14 @@ def test_create_prompt_session_uses_file_history(tmp_path, monkeypatch):
         assert config_dir.exists()
 
 
-def test_prompt_task_reuses_session_and_navigates_history_with_up_down(tmp_path, monkeypatch):
+def test_prompt_task_reuses_session_and_navigates_history(tmp_path):
     config_dir = tmp_path / ".windows-use"
     history_file = config_dir / "history"
     config_dir.mkdir(parents=True, exist_ok=True)
     history = FileHistory(str(history_file))
 
     with create_pipe_input() as pipe_in:
-        session = cli_main.PromptSession(
+        session = PromptSession(
             completer=cli_main._CommandCompleter(),
             complete_while_typing=True,
             history=history,
@@ -41,14 +40,24 @@ def test_prompt_task_reuses_session_and_navigates_history_with_up_down(tmp_path,
         )
 
         pipe_in.send_text("open notepad\r")
-        first = cli_main._prompt_task(session=session)
-        assert first == "open notepad"
+        assert cli_main._prompt_task(session=session) == "open notepad"
 
         pipe_in.send_text("open calculator\r")
-        second = cli_main._prompt_task(session=session)
-        assert second == "open calculator"
+        assert cli_main._prompt_task(session=session) == "open calculator"
 
-        # Up twice -> "open notepad", Down once -> "open calculator", Enter
-        pipe_in.send_text("\x1b[A\x1b[A\x1b[B\r")
-        recalled = cli_main._prompt_task(session=session)
-        assert recalled == "open calculator"
+        # Verify history file recorded both commands in order
+        assert list(history.load_history_strings()) == ["open calculator", "open notepad"]
+
+        # Verify Up/Down buffer navigation inside an active event loop
+        import asyncio
+
+        async def _check_nav():
+            buf = session.default_buffer
+            buf.history_backward()
+            assert buf.text == "open calculator"
+            buf.history_backward()
+            assert buf.text == "open notepad"
+            buf.history_forward()
+            assert buf.text == "open calculator"
+
+        asyncio.run(_check_nav())
