@@ -10,9 +10,12 @@ import time
 import typer
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.history import FileHistory
 
 from windows_use.cli.config import (
+    HISTORY_FILE,
     LOGGING_CONFIG_FILE,
+    WINDOWS_USE_DIR,
     apply_logging_config,
     get_active_config,
     get_log_level,
@@ -208,13 +211,20 @@ class _CommandCompleter(Completer):
                 yield Completion(cmd, start_position=-len(document.text), display_meta=desc)
 
 
-def _prompt_task(default: str = "") -> str:
-    r"""Read input with \ command autocomplete. Use default to pre-fill (e.g. after voice transcribe)."""
-    session = PromptSession(
+def _create_prompt_session() -> PromptSession:
+    r"""Create an interactive PromptSession with \ command completion and persistent history."""
+    WINDOWS_USE_DIR.mkdir(parents=True, exist_ok=True)
+    return PromptSession(
         completer=_CommandCompleter(),
         complete_while_typing=True,
+        history=FileHistory(str(HISTORY_FILE)),
     )
-    return session.prompt("> ", default=default).strip()
+
+
+def _prompt_task(default: str = "", session: PromptSession | None = None) -> str:
+    r"""Read input with \ command autocomplete and Up/Down history. Use default to pre-fill."""
+    active_session = session or _create_prompt_session()
+    return active_session.prompt("> ", default=default).strip()
 
 
 def _clear_screen() -> None:
@@ -225,13 +235,6 @@ def _clear_screen() -> None:
 def _run_interactive(provider: str, model: str, max_steps: int, debug: bool = False) -> None:
     """Run the interactive task loop."""
     from windows_use.agent import Agent, Browser
-    from windows_use.cli.config import (
-    LOGGING_CONFIG_FILE,
-    apply_logging_config,
-    get_active_config,
-    get_log_level,
-    save_logging_config,
-)
     from windows_use.cli.setup import (
         create_llm,
         create_stt_provider,
@@ -315,9 +318,11 @@ def _run_interactive(provider: str, model: str, max_steps: int, debug: bool = Fa
 
         return cb if tts_instance else None
 
+    prompt_session = _create_prompt_session()
+
     while True:
         try:
-            task = _prompt_task()
+            task = _prompt_task(session=prompt_session)
         except (EOFError, KeyboardInterrupt):
             break
 
@@ -458,7 +463,7 @@ def _run_interactive(provider: str, model: str, max_steps: int, debug: bool = Fa
                 # Clear "> Transcribing..." so prompt renders cleanly (avoids "> Transcribing...> Hello.")
                 _overwrite_line("")
                 sys.stdout.flush()
-                task = _prompt_task(default=task)
+                task = _prompt_task(default=task, session=prompt_session)
                 if not task:
                     continue
             except ImportError:

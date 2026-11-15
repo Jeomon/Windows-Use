@@ -29,6 +29,7 @@ WINDOWS_USE_DIR = Path.home() / ".windows-use"
 CONFIG_FILE = WINDOWS_USE_DIR / "config.json"
 SPEECH_CONFIG_FILE = WINDOWS_USE_DIR / "speech_config.json"
 LOGGING_CONFIG_FILE = WINDOWS_USE_DIR / "logging_config.json"
+HISTORY_FILE = WINDOWS_USE_DIR / "history"
 _ENC_SALT = b"windows-use-cli-v1"
 VALID_LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 _LOG_LEVEL_ALIASES = {"VERBOSE": "DEBUG"}
