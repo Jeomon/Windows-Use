@@ -392,9 +392,9 @@ async def click_tool(
 async def type_tool(
     loc: list[int] | None = None,
     text: str = "",
-    clear: Literal["true", "false"] = "false",
+    clear: bool = False,
     caret_position: Literal["start", "idle", "end"] = "idle",
-    press_enter: Literal["true", "false"] = "false",
+    press_enter: bool = False,
     **kwargs,
 ):
     """
@@ -470,7 +470,7 @@ async def shortcut_tool(shortcut: str, **kwargs) -> str:
 
 @Tool("multi_select_tool", model=MultiSelect)
 async def multi_select_tool(
-    press_ctrl: Literal["true", "false"] = "true", elements: list[list[int]] = [], **kwargs
+    press_ctrl: bool = False, elements: list[list[int]] = [], **kwargs
 ) -> str:
     """
     Clicks multiple locations in sequence. With press_ctrl=true, holds Ctrl to accumulate a multi-selection (e.g., selecting multiple files, checkboxes, or list items). With press_ctrl=false, clicks each location independently in order.

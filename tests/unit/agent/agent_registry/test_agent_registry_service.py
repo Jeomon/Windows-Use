@@ -17,7 +17,7 @@ class TestRegistry:
         mock = MagicMock(spec=Tool)
         mock.name = "TestTool"
         mock.json_schema = {"name": "TestTool", "parameters": {}}
-        mock.validate_params.return_value = []
+        mock.validate_and_normalize_params.side_effect = lambda params: (params, [])
         mock.invoke.return_value = "Tool execution result"
         return mock
 
@@ -43,7 +43,7 @@ class TestRegistry:
         mock_tool.invoke.assert_called_once_with(desktop=mock_desktop, param1="val1")
 
     def test_execute_validation_failure(self, mock_tool):
-        mock_tool.validate_params.return_value = ["Invalid param"]
+        mock_tool.validate_and_normalize_params.side_effect = lambda params: ({}, ["Invalid param"])
         registry = Registry(tools=[mock_tool])
 
         result = registry.execute("TestTool", tool_params={"param1": "val1"})
