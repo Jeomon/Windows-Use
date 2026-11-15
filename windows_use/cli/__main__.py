@@ -12,7 +12,13 @@ from dotenv import load_dotenv
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 
-from windows_use.cli.config import get_active_config
+from windows_use.cli.config import (
+    LOGGING_CONFIG_FILE,
+    apply_logging_config,
+    get_active_config,
+    get_log_level,
+    save_logging_config,
+)
 from windows_use.cli.registry import PROVIDER_DISPLAY, get_provider_display
 
 load_dotenv()
@@ -139,8 +145,7 @@ def _callback(
     ),
 ) -> None:
     """Interactive CLI: accept tasks, execute them, show intermediates, wait for next."""
-    if debug:
-        logging.getLogger("windows_use.speech.service").setLevel(logging.DEBUG)
+    apply_logging_config("DEBUG" if debug else None)
     if version_flag:
         typer.echo("Windows-Use ", nl=False)
         typer.secho(f"v{_version()}", fg="green", nl=False)
@@ -152,6 +157,31 @@ def _callback(
 
     provider_key, model_id = _resolve_provider_model(model, provider)
     _run_interactive(provider=provider_key, model=model_id, max_steps=max_steps, debug=debug)
+
+
+@app.command("logging")
+def logging_cmd(
+    level: str | None = typer.Argument(
+        None,
+        help="Log level to persist (debug, verbose, info, warning, error, critical). Omit to show current.",
+    ),
+) -> None:
+    """View or persist the default logging level in ~/.windows-use/logging_config.json."""
+    if level is None:
+        typer.echo(f"Current logging level: {get_log_level()} ({LOGGING_CONFIG_FILE})")
+        return
+
+    try:
+        cfg = save_logging_config(level)
+    except ValueError as exc:
+        typer.secho(str(exc), fg="red", err=True)
+        raise typer.Exit(code=1) from exc
+
+    apply_logging_config(cfg["level"])
+    typer.secho(
+        f"Saved logging level: {cfg['level']} ({LOGGING_CONFIG_FILE})",
+        fg="green",
+    )
 
 
 # Commands available when typing \ (backslash): (command, description)
@@ -195,7 +225,13 @@ def _clear_screen() -> None:
 def _run_interactive(provider: str, model: str, max_steps: int, debug: bool = False) -> None:
     """Run the interactive task loop."""
     from windows_use.agent import Agent, Browser
-    from windows_use.cli.config import get_active_config
+    from windows_use.cli.config import (
+    LOGGING_CONFIG_FILE,
+    apply_logging_config,
+    get_active_config,
+    get_log_level,
+    save_logging_config,
+)
     from windows_use.cli.setup import (
         create_llm,
         create_stt_provider,

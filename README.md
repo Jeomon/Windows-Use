@@ -129,7 +129,15 @@ windows-use
 --model, -m      LLM model to use
 --provider, -p   LLM provider
 --max-steps      Max steps per task (default: 200)
---debug, -d      Enable debug logging
+--debug, -d      Enable debug logging for the current session
+```
+
+**Persistent logging level:**
+
+```bash
+windows-use logging              # Show current persisted log level
+windows-use logging debug        # Persist DEBUG (or 'verbose') to ~/.windows-use/logging_config.json
+windows-use logging info         # Restore default INFO level
 ```
 
 **In-session commands:**
