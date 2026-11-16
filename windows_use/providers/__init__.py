@@ -18,6 +18,7 @@ from windows_use.providers.atlas_cloud import ChatAtlasCloud
 from windows_use.providers.azure_openai import ChatAzureOpenAI
 from windows_use.providers.base import BaseChatLLM, BaseSTT, BaseTTS
 from windows_use.providers.cerebras import ChatCerebras
+from windows_use.providers.cheapaimodel import ChatCheapAIModel
 from windows_use.providers.cheaper_inference import ChatCheaperInference
 from windows_use.providers.deepseek import ChatDeepSeek
 from windows_use.providers.events import LLMEvent, LLMStreamEvent, Thinking, ToolCall
@@ -77,6 +78,7 @@ __all__ = [
     "ChatAnthropic",
     "ChatAtlasCloud",
     "ChatCheaperInference",
+    "ChatCheapAIModel",
     "ChatGoogle",
     "ChatOpenAI",
     "ChatOllama",
