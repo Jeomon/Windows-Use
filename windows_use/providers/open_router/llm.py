@@ -29,6 +29,8 @@ from windows_use.tools import Tool
 
 logger = logging.getLogger(__name__)
 
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
 
 class ChatOpenRouter(BaseChatLLM):
     """
@@ -42,7 +44,7 @@ class ChatOpenRouter(BaseChatLLM):
         self,
         model: str,
         api_key: str | None = None,
-        base_url: str = "https://openrouter.ai/api/v1",
+        base_url: str | None = None,
         timeout: float = 600.0,
         max_retries: int = 2,
         temperature: float | None = None,
@@ -55,7 +57,7 @@ class ChatOpenRouter(BaseChatLLM):
         Args:
             model (str): The model name (e.g., 'anthropic/claude-3-sonnet').
             api_key (str, optional): OpenRouter API key. Defaults to OPENROUTER_API_KEY.
-            base_url (str): OpenRouter base URL.
+            base_url (str, optional): OpenRouter base URL. Defaults to OPENROUTER_BASE_URL env or https://openrouter.ai/api/v1.
             timeout (float): Request timeout.
             max_retries (int): Maximum retries.
             temperature (float, optional): Sampling temperature..
@@ -63,6 +65,7 @@ class ChatOpenRouter(BaseChatLLM):
         """
         self._model = model
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
+        self.base_url = base_url or os.environ.get("OPENROUTER_BASE_URL") or OPENROUTER_BASE_URL
         self.temperature = temperature
 
         # Build headers
@@ -70,14 +73,14 @@ class ChatOpenRouter(BaseChatLLM):
 
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=base_url,
+            base_url=self.base_url,
             timeout=timeout,
             max_retries=max_retries,
             default_headers=headers,
         )
         self.aclient = AsyncOpenAI(
             api_key=self.api_key,
-            base_url=base_url,
+            base_url=self.base_url,
             timeout=timeout,
             max_retries=max_retries,
             default_headers=headers,

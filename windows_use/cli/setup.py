@@ -14,6 +14,7 @@ from rich.panel import Panel
 
 from windows_use.cli.config import (
     get_api_key,
+    get_env_var,
     get_providers_config,
     get_speech_config,
     save_speech_config,
@@ -648,11 +649,11 @@ def _env_api_key_for_speech_provider(provider: str) -> str | None:
     name = env_map.get(provider)
     if not name:
         return None
-    val = os.environ.get(name)
+    val = get_env_var(name)
     if val:
         return val
     if provider == "google":
-        return os.environ.get("GOOGLE_API_KEY")
+        return get_env_var("GOOGLE_API_KEY")
     return None
 
 
@@ -775,9 +776,9 @@ def _env_api_key_for_provider(provider: str) -> str | None:
     name = env_map.get(provider)
     if not name:
         return None
-    val = os.environ.get(name)
+    val = get_env_var(name)
     if val:
         return val
     if provider == "google":
-        return os.environ.get("GOOGLE_API_KEY")
+        return get_env_var("GOOGLE_API_KEY")
     return None

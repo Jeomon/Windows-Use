@@ -9,17 +9,30 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from dotenv import load_dotenv
+
+if sys.platform == "win32":
+    import winreg
+else:  # pragma: no cover - non-Windows platforms
+    winreg = None  # type: ignore[assignment]
 
 WINDOWS_USE_DIR = Path.home() / ".windows-use"
 CONFIG_FILE = WINDOWS_USE_DIR / "config.json"
 SPEECH_CONFIG_FILE = WINDOWS_USE_DIR / "speech_config.json"
+LOGGING_CONFIG_FILE = WINDOWS_USE_DIR / "logging_config.json"
+HISTORY_FILE = WINDOWS_USE_DIR / "history"
 _ENC_SALT = b"windows-use-cli-v1"
+VALID_LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+_LOG_LEVEL_ALIASES = {"VERBOSE": "DEBUG"}
 
 
 def _get_fernet() -> Fernet:
@@ -237,3 +250,117 @@ def save_speech_config(
         cfg["tts"] = entry
     WINDOWS_USE_DIR.mkdir(parents=True, exist_ok=True)
     SPEECH_CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+
+
+# --- Logging config ---
+
+
+def normalize_log_level(level: str) -> str:
+    """Normalize and validate a log level name (accepts 'verbose' as alias for 'DEBUG')."""
+    normalized = level.strip().upper()
+    normalized = _LOG_LEVEL_ALIASES.get(normalized, normalized)
+    if normalized not in VALID_LOG_LEVELS:
+        valid = ", ".join(VALID_LOG_LEVELS)
+        raise ValueError(f"Invalid log level '{level}'. Choose one of: {valid} (or verbose).")
+    return normalized
+
+
+def get_logging_config() -> dict[str, Any]:
+    """Load logging config. Returns {'level': 'INFO'} if missing or invalid."""
+    if not LOGGING_CONFIG_FILE.exists():
+        return {"level": "INFO"}
+    try:
+        raw = json.loads(LOGGING_CONFIG_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"level": "INFO"}
+    if isinstance(raw, dict):
+        level = raw.get("level", "INFO")
+        if isinstance(level, str):
+            try:
+                return {"level": normalize_log_level(level)}
+            except ValueError:
+                pass
+    return {"level": "INFO"}
+
+
+def get_log_level() -> str:
+    """Return the persisted log level name (defaults to 'INFO')."""
+    return str(get_logging_config()["level"])
+
+
+def save_logging_config(level: str) -> dict[str, Any]:
+    """Persist the log level to ~/.windows-use/logging_config.json."""
+    normalized = normalize_log_level(level)
+    cfg = {"level": normalized}
+    WINDOWS_USE_DIR.mkdir(parents=True, exist_ok=True)
+    LOGGING_CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    return cfg
+
+
+def apply_logging_config(level: str | None = None) -> int:
+    """Apply the given or persisted log level to Windows-Use loggers."""
+    resolved = normalize_log_level(level) if level is not None else get_log_level()
+    numeric_level = getattr(logging, resolved, logging.INFO)
+    logging.getLogger("windows_use").setLevel(numeric_level)
+    logging.getLogger("windows_use.speech.service").setLevel(numeric_level)
+    return numeric_level
+
+
+# --- Environment variable loading (project .env + Windows User/System registry) ---
+
+_WINDOWS_ENV_LOCATIONS = (
+    ("HKEY_CURRENT_USER", r"Environment"),
+    (
+        "HKEY_LOCAL_MACHINE",
+        r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+    ),
+)
+
+
+def _read_windows_registry_env(root_name: str, subkey: str) -> dict[str, str]:
+    """Read environment variables from a Windows registry hive/subkey."""
+    if winreg is None:
+        return {}
+    root = getattr(winreg, root_name, None)
+    if root is None:
+        return {}
+    env_vars: dict[str, str] = {}
+    try:
+        with winreg.OpenKey(root, subkey) as key:
+            index = 0
+            while True:
+                try:
+                    name, value, value_type = winreg.EnumValue(key, index)
+                except OSError:
+                    break
+                index += 1
+                if isinstance(name, str) and isinstance(value, str) and value:
+                    if value_type == getattr(winreg, "REG_EXPAND_SZ", 2):
+                        value = os.path.expandvars(value)
+                    env_vars[name] = value
+    except OSError:
+        return {}
+    return env_vars
+
+
+def load_env_vars() -> None:
+    """Load env vars from project .env, then Windows User and System registry.
+
+    Precedence (highest to lowest): existing process env > project .env >
+    Windows User env > Windows System env. Existing os.environ entries are
+    never overwritten.
+    """
+    load_dotenv()
+    for root_name, subkey in _WINDOWS_ENV_LOCATIONS:
+        for name, value in _read_windows_registry_env(root_name, subkey).items():
+            os.environ.setdefault(name, value)
+
+
+def get_env_var(name: str, default: str | None = None) -> str | None:
+    """Get an environment variable, falling back to project .env and Windows User/System env."""
+    val = os.environ.get(name)
+    if val:
+        return val
+    load_env_vars()
+    val = os.environ.get(name)
+    return val if val else default

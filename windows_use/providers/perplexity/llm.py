@@ -44,7 +44,7 @@ class ChatPerplexity:
         self,
         model: str = "sonar-pro",
         api_key: str | None = None,
-        base_url: str = "https://api.perplexity.ai",
+        base_url: str | None = None,
         timeout: float = 600.0,
         temperature: float = 0.5,
         max_output_tokens: int = 16000,
@@ -55,7 +55,9 @@ class ChatPerplexity:
         self._api_model = self._model_info["api_name"]
         self.temperature = temperature
         self.max_output_tokens = max_output_tokens
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (
+            base_url or os.environ.get("PERPLEXITY_BASE_URL") or "https://api.perplexity.ai"
+        ).rstrip("/")
         self.timeout = timeout
 
         self.api_key = api_key or os.environ.get("PERPLEXITY_API_KEY")
