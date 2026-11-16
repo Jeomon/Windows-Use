@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Input flags**: Boolean clear, Enter, Ctrl, and drag options now use validated values and defaults through tool dispatch. Legacy desktop `"true"`/`"false"` inputs remain supported, and multi-select releases Ctrl after an action failure.
+- **Context compaction**: Mixed parameter types, missing content, and large values no longer crash history formatting. Async tasks use async summarization; failed summaries preserve history, and token usage resets between tasks.
+- **Task results**: Caught execution errors return failed results, invalid completion calls cannot report success, and provider errors are reported consistently in both execution modes. Telemetry failures no longer overwrite task outcomes; cancellation still propagates.
 
 ## [0.7.66] - 2026-03-25
 

@@ -1,3 +1,4 @@
+import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from getpass import getuser
@@ -17,10 +18,23 @@ from windows_use.messages import (
     ToolMessage,
 )
 from windows_use.providers import BaseChatLLM, TokenUsage
+from windows_use.providers.events import LLMEvent, LLMEventType
 
 _template_cache: dict[str, str] = {}
 
 _NON_TOOL_PARAMS = {"thought"}
+_COMPACTION_CONTENT_LIMIT = 2000
+_COMPACTION_PARAMS_LIMIT = 4000
+_COMPACTION_THOUGHT_LIMIT = 1000
+_TRUNCATED = "...[TRUNCATED]"
+
+
+def _bounded_text(value: object, limit: int) -> str:
+    """Render JSON values before truncating, preserving their types in history."""
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, default=str)
+    if len(text) > limit:
+        return text[: limit - len(_TRUNCATED)] + _TRUNCATED
+    return text
 
 
 def _load_template(filename: str) -> str:
@@ -87,14 +101,12 @@ class Context:
     def _format_history_for_compaction(self, messages: list[BaseMessage]) -> str:
         lines = ["Following is the conversation that needs to be compacted:"]
         for message in messages:
-            content = (
-                message.content[:2000] + "...[TRUNCATED]"
-                if len(message.content) > 2000
-                else message.content
-            )
             if isinstance(message, SystemMessage):
-                pass
-            elif isinstance(message, (HumanMessage)):
+                continue
+            content = _bounded_text(
+                message.content if message.content is not None else "", _COMPACTION_CONTENT_LIMIT
+            )
+            if isinstance(message, HumanMessage | ImageMessage):
                 lines.append(f"USER: {content}")
             elif isinstance(message, AIMessage):
                 lines.append(f"ASSISTANT: {content}")
@@ -103,11 +115,11 @@ class Context:
                 name = message.name
                 params = message.params
                 if "thought" in params:
-                    lines.append(f"THOUGHT: {params['thought']}")
-                parts = ", ".join(
-                    f"{k}={v[:2000] + '...[TRUNCATED]' if len(v) > 2000 else v}"
-                    for k, v in params.items()
-                    if k not in _NON_TOOL_PARAMS
+                    thought = _bounded_text(params["thought"], _COMPACTION_THOUGHT_LIMIT)
+                    lines.append(f"THOUGHT: {thought}")
+                parts = _bounded_text(
+                    {k: v for k, v in params.items() if k not in _NON_TOOL_PARAMS},
+                    _COMPACTION_PARAMS_LIMIT,
                 )
                 lines.append(f"TOOL CALL {id}: {name}({parts})")
                 lines.append(f"TOOL RESULT {id}: {content}")
@@ -126,12 +138,33 @@ class Context:
         self,
         messages: list[BaseMessage],
     ) -> str | None:
+        """Summarize history, returning None when the provider gives no usable text."""
+        llm_response = self.llm.invoke(self._compaction_messages(messages))
+        return self._format_compaction_response(llm_response)
+
+    async def acompact(self, messages: list[BaseMessage]) -> str | None:
+        """Summarize history without making a synchronous provider call."""
+        llm_response = await self.llm.ainvoke(self._compaction_messages(messages))
+        return self._format_compaction_response(llm_response)
+
+    def _compaction_messages(self, messages: list[BaseMessage]) -> list[BaseMessage]:
         template = _load_template("compact.md")
-        compaction_messages = [
+        return [
             SystemMessage(content=template),
             HumanMessage(content=self._format_history_for_compaction(messages)),
         ]
-        llm_response = self.llm.invoke(compaction_messages)
+
+    def _format_compaction_response(self, response: LLMEvent | None) -> str | None:
+        if (
+            response is None
+            or response.type != LLMEventType.TEXT
+            or not isinstance(response.content, str)
+            or not response.content.strip()
+        ):
+            return None
+        # The previous request's token count no longer describes the compacted history.
+        self.token_usage = TokenUsage()
+        summary = response.content.strip()
         return f"""
 # Context Restoration (Previous Session Compacted)
 
@@ -141,7 +174,7 @@ The previous conversation was compacted due to context window limitations. Below
 
 ---
 
-{llm_response.content}
+{summary}
 
 ---
 
