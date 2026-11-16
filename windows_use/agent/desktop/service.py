@@ -19,6 +19,7 @@ from fuzzywuzzy import process
 from markdownify import markdownify
 from PIL import Image, ImageDraw, ImageFont, ImageGrab
 from psutil import Process
+from pydantic import validate_call
 
 import windows_use.uia as uia
 from windows_use.agent.desktop.config import KEY_ALIASES
@@ -413,13 +414,14 @@ class Desktop:
                 for _ in range(clicks):
                     uia.MiddleClick(x, y)
 
+    @validate_call
     def type(
         self,
         loc: tuple[int, int],
         text: str,
-        caret_position: Literal["start", "end", "none"] = "none",
-        clear: Literal["true", "false"] = "false",
-        press_enter: Literal["true", "false"] = "false",
+        caret_position: Literal["start", "end", "none", "idle"] = "none",
+        clear: bool = False,
+        press_enter: bool = False,
     ):
         x, y = loc
         uia.Click(x, y)
@@ -427,13 +429,13 @@ class Desktop:
             uia.SendKeys("{Home}", waitTime=0.05)
         elif caret_position == "end":
             uia.SendKeys("{End}", waitTime=0.05)
-        if clear == "true":
+        if clear:
             sleep(0.5)
             uia.SendKeys("{Ctrl}a", waitTime=0.05)
             uia.SendKeys("{Back}", waitTime=0.05)
         escaped_text = escape_text_for_sendkeys(text)
         uia.SendKeys(escaped_text, interval=0.01, waitTime=0.05)
-        if press_enter == "true":
+        if press_enter:
             uia.SendKeys("{Enter}", waitTime=0.05)
 
     def scroll(
@@ -489,23 +491,29 @@ class Desktop:
                 sendkeys_str += "{" + name + "}"
         uia.SendKeys(sendkeys_str, interval=0.01)
 
+    @validate_call
     def multi_select(
         self,
-        press_ctrl: Literal["true", "false"] = "false",
-        elements: list[tuple[int, int] | int] = [],
+        press_ctrl: bool = False,
+        elements: list[tuple[int, int]] = [],
     ):
-        if press_ctrl == "true":
-            uia.PressKey(uia.Keys.VK_CONTROL, waitTime=0.05)
-        for element in elements:
-            x, y = element
-            uia.Click(x, y, waitTime=0.2)
-            sleep(0.5)
-        uia.ReleaseKey(uia.Keys.VK_CONTROL, waitTime=0.05)
+        ctrl_pressed = False
+        try:
+            if press_ctrl:
+                uia.PressKey(uia.Keys.VK_CONTROL, waitTime=0.05)
+                ctrl_pressed = True
+            for element in elements:
+                x, y = element
+                uia.Click(x, y, waitTime=0.2)
+                sleep(0.5)
+        finally:
+            if ctrl_pressed:
+                uia.ReleaseKey(uia.Keys.VK_CONTROL, waitTime=0.05)
 
     def multi_edit(self, elements: list[tuple[int, int, str] | tuple[int, str]]):
         for element in elements:
             x, y, text = element
-            self.type((x, y), text=text, clear="true")
+            self.type((x, y), text=text, clear=True)
 
     def scrape(self, url: str) -> str:
         response = requests.get(url, timeout=10)
