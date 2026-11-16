@@ -28,6 +28,7 @@ from windows_use.agent.watchdog.service import WatchDog
 from windows_use.messages import AIMessage, HumanMessage, ImageMessage, SystemMessage, ToolMessage
 from windows_use.providers.events import LLMEventType
 from windows_use.cli.config import apply_logging_config, load_env_vars
+from windows_use.providers.views import TokenUsage
 from windows_use.telemetry.service import ProductTelemetry
 from windows_use.telemetry.views import AgentTelemetryEvent
 
@@ -100,6 +101,13 @@ class Agent(BaseAgent):
             experimental: Whether to include experimental tools. Defaults to False.
             disable_loop_detection: Whether to disable loop detection. Defaults to False.
         """
+        for name, limit in (
+            ("max_steps", max_steps),
+            ("max_consecutive_failures", max_consecutive_failures),
+        ):
+            if type(limit) is not int or limit <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+
         self.name = "Windows Use"
         self.description = "An agent that can interact with GUI elements on Windows OS"
         self.mode = mode
@@ -173,6 +181,46 @@ class Agent(BaseAgent):
             desktop=self.desktop,
         )
 
+    def _emit_llm_error(self, step: int, attempt: int, error: str, error_type: str) -> dict:
+        data = {
+            "step": step,
+            "attempt": attempt + 1,
+            "provider": self.llm.provider,
+            "model": self.llm.model_name,
+            "error_type": error_type,
+            "error": error,
+        }
+        self.event.emit(AgentEvent(type=EventType.ERROR, data=data))
+        return data
+
+    def _capture_result(
+        self,
+        result: AgentResult,
+        exception: Exception | None = None,
+        error_traceback: str | None = None,
+    ) -> None:
+        """Record telemetry without changing the task's outcome if telemetry fails."""
+        try:
+            self.telemetry.capture(
+                AgentTelemetryEvent(
+                    query=self.state.task,
+                    steps=self.state.step,
+                    max_steps=self.state.max_steps,
+                    model=getattr(self.llm, "model_name", "unknown"),
+                    provider=getattr(self.llm, "provider", "unknown"),
+                    use_vision=self.desktop.use_vision,
+                    answer=result.content,
+                    error=result.error,
+                    error_type=type(exception).__name__ if exception else None,
+                    error_traceback=error_traceback,
+                    version=_get_package_version(),
+                    is_success=result.is_done,
+                )
+            )
+            self.telemetry.flush()
+        except Exception:
+            logger.warning("Unable to record agent telemetry.")
+
     def loop(self) -> AgentResult:
         """Run the main agent loop.
 
@@ -192,9 +240,19 @@ class Agent(BaseAgent):
 
             if self.context.need_compaction:
                 messages = self.state.messages + self.state.error_messages
-                if content := self.context.compact(messages):
-                    self.state.messages = [self.system_message, HumanMessage(content=content)]
-                self.state.error_messages.clear()
+                try:
+                    content = self.context.compact(messages)
+                except Exception as error:
+                    self.event.emit(
+                        AgentEvent(
+                            type=EventType.ERROR,
+                            data={"step": step, "error": str(error), "error_source": "compaction"},
+                        )
+                    )
+                else:
+                    if content:
+                        self.state.messages = [self.system_message, HumanMessage(content=content)]
+                        self.state.error_messages.clear()
 
             # Check for loops and build state message with nudge
             nudge = None if self.disable_loop_detection else self._loop_guard.check()
@@ -220,7 +278,7 @@ class Agent(BaseAgent):
 
             # Reason: call LLM, retry on failure, return ToolMessage
             message: ToolMessage | None = None
-            last_error: Exception | None = None
+            last_error: str | None = None
             llm_errors: list[dict] = []
             for attempt in range(self.state.max_consecutive_failures):
                 try:
@@ -240,6 +298,7 @@ class Agent(BaseAgent):
                             )
                             break
                         case LLMEventType.TEXT:
+                            last_error = "Provider returned text instead of a tool call."
                             ai_message = AIMessage(content=llm_event.content)
                             human_message = HumanMessage(
                                 content="Response rejected, please use the `done_tool` to respond to the user."
@@ -247,31 +306,18 @@ class Agent(BaseAgent):
                             self.state.error_messages.extend([ai_message, human_message])
                             continue
                         case LLMEventType.ERROR:
-                            # Emit LLM error event
-                            llm_error_data = {
-                                "step": step,
-                                "attempt": attempt + 1,
-                                "provider": self.llm.provider,
-                                "model": self.llm.model_name,
-                                "error_type": type(llm_event).__name__,
-                                "error": str(llm_event),
-                            }
-                            self.event.emit(AgentEvent(type=EventType.ERROR, data=llm_error_data))
-                            llm_errors.append(llm_error_data)
+                            last_error = (
+                                llm_event.content or "Provider returned an error without details."
+                            )
+                            llm_errors.append(
+                                self._emit_llm_error(step, attempt, last_error, "provider_error")
+                            )
                             continue
                 except Exception as e:
-                    last_error = e
-                    # Emit LLM error event for exception
-                    llm_error_data = {
-                        "step": step,
-                        "attempt": attempt + 1,
-                        "provider": self.llm.provider,
-                        "model": self.llm.model_name,
-                        "error_type": type(e).__name__,
-                        "error": str(e),
-                    }
-                    self.event.emit(AgentEvent(type=EventType.ERROR, data=llm_error_data))
-                    llm_errors.append(llm_error_data)
+                    last_error = str(e) or type(e).__name__
+                    llm_errors.append(
+                        self._emit_llm_error(step, attempt, last_error, type(e).__name__)
+                    )
 
                     if attempt < self.state.max_consecutive_failures - 1:
                         wait_time = 2 ** (attempt + 1)
@@ -348,7 +394,7 @@ class Agent(BaseAgent):
                 message.content = content
                 self.state.error_messages.append(message)
 
-            if tool_name != "done_tool":
+            if tool_name != "done_tool" or not tool_result.is_success:
                 self.event.emit(
                     AgentEvent(
                         type=EventType.TOOL_RESULT,
@@ -375,8 +421,8 @@ class Agent(BaseAgent):
             else:
                 consecutive_failures = 0
 
-            if tool_name == "done_tool":
-                content = tool_params.get("answer", "")
+            if tool_name == "done_tool" and tool_result.is_success:
+                content = tool_result.content
                 self.event.emit(
                     AgentEvent(type=EventType.DONE, data={"step": step, "content": content})
                 )
@@ -391,50 +437,25 @@ class Agent(BaseAgent):
     def invoke(self, task: str) -> AgentResult:
         self.state.reset()
         self.state.task = task
+        self.context.token_usage = TokenUsage()
         try:
             with self.desktop.auto_minimize() if self.auto_minimize else nullcontext():
                 self.watchdog.set_focus_callback(self.desktop.tree.on_focus_change)
                 with self.watchdog:
                     result = self.loop()
-            self.telemetry.capture(
-                AgentTelemetryEvent(
-                    query=task,
-                    steps=self.state.step,
-                    max_steps=self.state.max_steps,
-                    model=self.llm.model_name,
-                    provider=self.llm.provider,
-                    use_vision=self.desktop.use_vision,
-                    answer=result.content,
-                    error=result.error,
-                    version=_get_package_version(),
-                    is_success=result.is_done,
-                )
-            )
-            self.telemetry.flush()
-            return result
         except Exception as e:
+            error = str(e) or type(e).__name__
             self.event.emit(
                 AgentEvent(
                     type=EventType.ERROR,
-                    data={"step": self.state.step, "error": str(e)},
+                    data={"step": self.state.step, "error": error},
                 )
             )
-            self.telemetry.capture(
-                AgentTelemetryEvent(
-                    query=task,
-                    steps=self.state.step,
-                    max_steps=self.state.max_steps,
-                    model=self.llm.model_name,
-                    provider=self.llm.provider,
-                    use_vision=self.desktop.use_vision,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                    error_traceback=traceback.format_exc(),
-                    version=_get_package_version(),
-                    is_success=False,
-                )
-            )
-            self.telemetry.flush()
+            result = AgentResult(is_done=False, error=error)
+            self._capture_result(result, exception=e, error_traceback=traceback.format_exc())
+        else:
+            self._capture_result(result)
+        return result
 
     async def aloop(self) -> AgentResult:
         """Run the main agent loop asynchronously."""
@@ -450,9 +471,19 @@ class Agent(BaseAgent):
 
             if self.context.need_compaction:
                 messages = self.state.messages + self.state.error_messages
-                if content := self.context.compact(messages):
-                    self.state.messages = [self.system_message, HumanMessage(content=content)]
-                self.state.error_messages.clear()
+                try:
+                    content = await self.context.acompact(messages)
+                except Exception as error:
+                    self.event.emit(
+                        AgentEvent(
+                            type=EventType.ERROR,
+                            data={"step": step, "error": str(error), "error_source": "compaction"},
+                        )
+                    )
+                else:
+                    if content:
+                        self.state.messages = [self.system_message, HumanMessage(content=content)]
+                        self.state.error_messages.clear()
 
             # Check for loops and build state message with nudge
             nudge = None if self.disable_loop_detection else self._loop_guard.check()
@@ -477,7 +508,8 @@ class Agent(BaseAgent):
                 self._loop_guard.record_state(self.desktop.desktop_state)
 
             message: ToolMessage | None = None
-            last_error: Exception | None = None
+            last_error: str | None = None
+            llm_errors: list[dict] = []
             for attempt in range(self.state.max_consecutive_failures):
                 try:
                     messages = list(chain(self.state.messages, self.state.error_messages))
@@ -496,14 +528,26 @@ class Agent(BaseAgent):
                             )
                             break
                         case LLMEventType.TEXT:
+                            last_error = "Provider returned text instead of a tool call."
                             ai_message = AIMessage(content=llm_event.content)
                             human_message = HumanMessage(
                                 content="Response rejected, please use the `done_tool` to respond to the user."
                             )
                             self.state.error_messages.extend([ai_message, human_message])
                             continue
+                        case LLMEventType.ERROR:
+                            last_error = (
+                                llm_event.content or "Provider returned an error without details."
+                            )
+                            llm_errors.append(
+                                self._emit_llm_error(step, attempt, last_error, "provider_error")
+                            )
+                            continue
                 except Exception as e:
-                    last_error = e
+                    last_error = str(e) or type(e).__name__
+                    llm_errors.append(
+                        self._emit_llm_error(step, attempt, last_error, type(e).__name__)
+                    )
                     if attempt < self.state.max_consecutive_failures - 1:
                         wait_time = 2 ** (attempt + 1)
                         logger.error(
@@ -522,7 +566,15 @@ class Agent(BaseAgent):
             if message is None:
                 error = f"Agent failed after exhausting retries: {last_error}"
                 self.event.emit(
-                    AgentEvent(type=EventType.ERROR, data={"step": step, "error": error})
+                    AgentEvent(
+                        type=EventType.ERROR,
+                        data={
+                            "step": step,
+                            "error": error,
+                            "llm_errors": llm_errors,
+                            "error_source": "llm_exhausted_retries",
+                        },
+                    )
                 )
                 return AgentResult(is_done=False, error=error)
 
@@ -571,7 +623,7 @@ class Agent(BaseAgent):
                 message.content = content
                 self.state.error_messages.append(message)
 
-            if tool_name != "done_tool":
+            if tool_name != "done_tool" or not tool_result.is_success:
                 self.event.emit(
                     AgentEvent(
                         type=EventType.TOOL_RESULT,
@@ -598,8 +650,8 @@ class Agent(BaseAgent):
             else:
                 consecutive_failures = 0
 
-            if tool_name == "done_tool":
-                content = tool_params.get("answer", "")
+            if tool_name == "done_tool" and tool_result.is_success:
+                content = tool_result.content
                 self.event.emit(
                     AgentEvent(type=EventType.DONE, data={"step": step, "content": content})
                 )
@@ -614,47 +666,22 @@ class Agent(BaseAgent):
     async def ainvoke(self, task: str) -> AgentResult:
         self.state.reset()
         self.state.task = task
+        self.context.token_usage = TokenUsage()
         try:
             with self.desktop.auto_minimize() if self.auto_minimize else nullcontext():
                 self.watchdog.set_focus_callback(self.desktop.tree.on_focus_change)
                 with self.watchdog:
                     result = await self.aloop()
-            self.telemetry.capture(
-                AgentTelemetryEvent(
-                    query=task,
-                    steps=self.state.step,
-                    max_steps=self.state.max_steps,
-                    model=self.llm.model_name,
-                    provider=self.llm.provider,
-                    use_vision=self.desktop.use_vision,
-                    answer=result.content,
-                    error=result.error,
-                    version=_get_package_version(),
-                    is_success=result.is_done,
-                )
-            )
-            self.telemetry.flush()
-            return result
         except Exception as e:
+            error = str(e) or type(e).__name__
             self.event.emit(
                 AgentEvent(
                     type=EventType.ERROR,
-                    data={"step": self.state.step, "error": str(e)},
+                    data={"step": self.state.step, "error": error},
                 )
             )
-            self.telemetry.capture(
-                AgentTelemetryEvent(
-                    query=task,
-                    steps=self.state.step,
-                    max_steps=self.state.max_steps,
-                    model=self.llm.model_name,
-                    provider=self.llm.provider,
-                    use_vision=self.desktop.use_vision,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                    error_traceback=traceback.format_exc(),
-                    version=_get_package_version(),
-                    is_success=False,
-                )
-            )
-            self.telemetry.flush()
+            result = AgentResult(is_done=False, error=error)
+            self._capture_result(result, exception=e, error_traceback=traceback.format_exc())
+        else:
+            self._capture_result(result)
+        return result

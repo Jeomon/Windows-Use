@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Context compaction**: Mixed parameter types, missing content, and large values no longer crash history formatting. Async tasks use async summarization; failed summaries preserve history, and token usage resets between tasks.
+- **Task results**: Caught execution errors return failed results, invalid completion calls cannot report success, and provider errors are reported consistently in both execution modes. Telemetry failures no longer overwrite task outcomes; cancellation still propagates.
+
 ## [0.7.66] - 2026-03-25
 
 ### Added
