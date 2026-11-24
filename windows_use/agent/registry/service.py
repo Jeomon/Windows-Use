@@ -29,14 +29,14 @@ class Registry:
         tool = self.get_tool(tool_name)
         if not tool:
             return ToolResult(is_success=False, error=f"Tool '{tool_name}' not found.")
-        errors = tool.validate_params(tool_params)
+        params, errors = tool.validate_and_normalize_params(tool_params)
         if errors:
             error_msg = "\n".join(errors)
             return ToolResult(
                 is_success=False, error=f"Tool '{tool_name}' validation failed:\n{error_msg}"
             )
         try:
-            content = tool.invoke(**({"desktop": desktop} | tool_params))
+            content = tool.invoke(**(params | {"desktop": desktop}))
             return ToolResult(is_success=True, content=content)
         except Exception as error:
             error_msg = str(error)
@@ -50,14 +50,14 @@ class Registry:
         tool = self.get_tool(tool_name)
         if not tool:
             return ToolResult(is_success=False, error=f"Tool '{tool_name}' not found.")
-        errors = tool.validate_params(tool_params)
+        params, errors = tool.validate_and_normalize_params(tool_params)
         if errors:
             error_msg = "\n".join(errors)
             return ToolResult(
                 is_success=False, error=f"Tool '{tool_name}' validation failed:\n{error_msg}"
             )
         try:
-            content = await tool.ainvoke(**({"desktop": desktop} | tool_params))
+            content = await tool.ainvoke(**(params | {"desktop": desktop}))
             return ToolResult(is_success=True, content=content)
         except Exception as error:
             error_msg = str(error)

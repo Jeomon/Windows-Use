@@ -69,18 +69,24 @@ class Tool(ABC):
         }
 
     def validate_params(self, args: dict[str, Any]) -> list[str]:
+        _, errors = self.validate_and_normalize_params(args)
+        return errors
+
+    def validate_and_normalize_params(
+        self, args: dict[str, Any]
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Return the values validated by the schema, including coercions and defaults."""
         try:
-            self.model(**args)
-            return []
+            return self.model(**args).model_dump(), []
         except ValidationError as e:
             errors = []
             for error in e.errors():
                 field = "".join([str(loc) for loc in error["loc"]])
                 msg = error["msg"]
                 errors.append(f"{field}:{msg}")
-            return errors
+            return {}, errors
         except Exception as e:
-            return [str(e)]
+            return {}, [str(e)]
 
     def __call__(self, function):
         if self.name is None:
