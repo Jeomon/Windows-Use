@@ -27,6 +27,7 @@ from windows_use.agent.views import AgentResult, AgentState
 from windows_use.agent.watchdog.service import WatchDog
 from windows_use.messages import AIMessage, HumanMessage, ImageMessage, SystemMessage, ToolMessage
 from windows_use.providers.events import LLMEventType
+from windows_use.cli.config import apply_logging_config, load_env_vars
 from windows_use.providers.views import TokenUsage
 from windows_use.telemetry.service import ProductTelemetry
 from windows_use.telemetry.views import AgentTelemetryEvent
@@ -34,8 +35,9 @@ from windows_use.telemetry.views import AgentTelemetryEvent
 if TYPE_CHECKING:
     from windows_use.providers.base import BaseChatLLM
 
+load_env_vars()
 logger = logging.getLogger("windows_use")
-logger.setLevel(logging.INFO)
+apply_logging_config()
 handler = logging.StreamHandler()
 formatter = logging.Formatter("[%(levelname)s] %(message)s")
 handler.setFormatter(formatter)

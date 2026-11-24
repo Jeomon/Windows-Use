@@ -8,14 +8,23 @@ import threading
 import time
 
 import typer
-from dotenv import load_dotenv
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.history import FileHistory
 
-from windows_use.cli.config import get_active_config
+from windows_use.cli.config import (
+    HISTORY_FILE,
+    LOGGING_CONFIG_FILE,
+    WINDOWS_USE_DIR,
+    apply_logging_config,
+    get_active_config,
+    get_log_level,
+    load_env_vars,
+    save_logging_config,
+)
 from windows_use.cli.registry import PROVIDER_DISPLAY, get_provider_display
 
-load_dotenv()
+load_env_vars()
 
 
 # Dot animation: filled dot moves left to right •○○ -> ○•○ -> ○○•
@@ -139,8 +148,7 @@ def _callback(
     ),
 ) -> None:
     """Interactive CLI: accept tasks, execute them, show intermediates, wait for next."""
-    if debug:
-        logging.getLogger("windows_use.speech.service").setLevel(logging.DEBUG)
+    apply_logging_config("DEBUG" if debug else None)
     if version_flag:
         typer.echo("Windows-Use ", nl=False)
         typer.secho(f"v{_version()}", fg="green", nl=False)
@@ -152,6 +160,31 @@ def _callback(
 
     provider_key, model_id = _resolve_provider_model(model, provider)
     _run_interactive(provider=provider_key, model=model_id, max_steps=max_steps, debug=debug)
+
+
+@app.command("logging")
+def logging_cmd(
+    level: str | None = typer.Argument(
+        None,
+        help="Log level to persist (debug, verbose, info, warning, error, critical). Omit to show current.",
+    ),
+) -> None:
+    """View or persist the default logging level in ~/.windows-use/logging_config.json."""
+    if level is None:
+        typer.echo(f"Current logging level: {get_log_level()} ({LOGGING_CONFIG_FILE})")
+        return
+
+    try:
+        cfg = save_logging_config(level)
+    except ValueError as exc:
+        typer.secho(str(exc), fg="red", err=True)
+        raise typer.Exit(code=1) from exc
+
+    apply_logging_config(cfg["level"])
+    typer.secho(
+        f"Saved logging level: {cfg['level']} ({LOGGING_CONFIG_FILE})",
+        fg="green",
+    )
 
 
 # Commands available when typing \ (backslash): (command, description)
@@ -178,13 +211,20 @@ class _CommandCompleter(Completer):
                 yield Completion(cmd, start_position=-len(document.text), display_meta=desc)
 
 
-def _prompt_task(default: str = "") -> str:
-    r"""Read input with \ command autocomplete. Use default to pre-fill (e.g. after voice transcribe)."""
-    session = PromptSession(
+def _create_prompt_session() -> PromptSession:
+    r"""Create an interactive PromptSession with \ command completion and persistent history."""
+    WINDOWS_USE_DIR.mkdir(parents=True, exist_ok=True)
+    return PromptSession(
         completer=_CommandCompleter(),
         complete_while_typing=True,
+        history=FileHistory(str(HISTORY_FILE)),
     )
-    return session.prompt("> ", default=default).strip()
+
+
+def _prompt_task(default: str = "", session: PromptSession | None = None) -> str:
+    r"""Read input with \ command autocomplete and Up/Down history. Use default to pre-fill."""
+    active_session = session or _create_prompt_session()
+    return active_session.prompt("> ", default=default).strip()
 
 
 def _clear_screen() -> None:
@@ -195,7 +235,6 @@ def _clear_screen() -> None:
 def _run_interactive(provider: str, model: str, max_steps: int, debug: bool = False) -> None:
     """Run the interactive task loop."""
     from windows_use.agent import Agent, Browser
-    from windows_use.cli.config import get_active_config
     from windows_use.cli.setup import (
         create_llm,
         create_stt_provider,
@@ -279,9 +318,11 @@ def _run_interactive(provider: str, model: str, max_steps: int, debug: bool = Fa
 
         return cb if tts_instance else None
 
+    prompt_session = _create_prompt_session()
+
     while True:
         try:
-            task = _prompt_task()
+            task = _prompt_task(session=prompt_session)
         except (EOFError, KeyboardInterrupt):
             break
 
@@ -422,7 +463,7 @@ def _run_interactive(provider: str, model: str, max_steps: int, debug: bool = Fa
                 # Clear "> Transcribing..." so prompt renders cleanly (avoids "> Transcribing...> Hello.")
                 _overwrite_line("")
                 sys.stdout.flush()
-                task = _prompt_task(default=task)
+                task = _prompt_task(default=task, session=prompt_session)
                 if not task:
                     continue
             except ImportError:
