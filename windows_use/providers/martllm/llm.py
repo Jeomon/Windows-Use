@@ -1,14 +1,14 @@
-"""UberLLM provider via its OpenAI-compatible API."""
+"""MartLLM provider via its OpenAI-compatible API."""
 
 import os
 
 from windows_use.providers.openai.llm import ChatOpenAI
 
-UBERLLM_BASE_URL = "https://api.uberllm.dev/v1"
+MARTLLM_BASE_URL = "https://api.martllm.com/v1"
 
 
-class ChatUberLLM(ChatOpenAI):
-    """Chat model served through UberLLM's OpenAI-compatible endpoint."""
+class ChatMartLLM(ChatOpenAI):
+    """Chat model served through MartLLM's OpenAI-compatible endpoint."""
 
     def __init__(
         self,
@@ -20,8 +20,8 @@ class ChatUberLLM(ChatOpenAI):
         temperature: float | None = None,
         **kwargs,
     ):
-        api_key = api_key or os.environ.get("UBERLLM_API_KEY")
-        base_url = base_url or os.environ.get("UBERLLM_API_BASE") or UBERLLM_BASE_URL
+        api_key = api_key or os.environ.get("MARTLLM_API_KEY")
+        base_url = base_url or os.environ.get("MARTLLM_API_BASE") or MARTLLM_BASE_URL
         super().__init__(
             model=model,
             api_key=api_key,
@@ -34,4 +34,4 @@ class ChatUberLLM(ChatOpenAI):
 
     @property
     def provider(self) -> str:
-        return "uberllm"
+        return "martllm"

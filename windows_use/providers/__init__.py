@@ -31,7 +31,7 @@ from windows_use.providers.open_router import ChatOpenRouter
 
 # STT providers
 from windows_use.providers.openai import ChatOpenAI, STTOpenAI
-from windows_use.providers.uberllm import ChatUberLLM
+from windows_use.providers.martllm import ChatMartLLM
 from windows_use.providers.views import Metadata, TokenUsage
 from windows_use.providers.vllm import ChatVLLM
 
@@ -78,7 +78,7 @@ __all__ = [
     "ChatAnthropic",
     "ChatAtlasCloud",
     "ChatCheaperInference",
-    "ChatUberLLM",
+    "ChatMartLLM",
     "ChatGoogle",
     "ChatOpenAI",
     "ChatOllama",
