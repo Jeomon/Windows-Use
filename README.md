@@ -159,6 +159,7 @@ windows-use logging info         # Restore default INFO level
 | OpenAI       | `from windows_use.providers.openai import ChatOpenAI`       |
 | Atlas Cloud  | `from windows_use.providers.atlas_cloud import ChatAtlasCloud` |
 | Cheaper Inference | `from windows_use.providers.cheaper_inference import ChatCheaperInference` |
+| MartLLM      | `from windows_use.providers.martllm import ChatMartLLM`     |
 | Google       | `from windows_use.providers.google import ChatGoogle`       |
 | Groq         | `from windows_use.providers.groq import ChatGroq`           |
 | Ollama       | `from windows_use.providers.ollama import ChatOllama`       |
@@ -185,6 +186,15 @@ Cheaper Inference uses its OpenAI-compatible API and reads `CHEAPER_INFERENCE_AP
 from windows_use.providers.cheaper_inference import ChatCheaperInference
 
 llm = ChatCheaperInference(model="gpt-5.4-mini")
+```
+
+MartLLM uses its OpenAI-compatible API and reads `MARTLLM_API_KEY` by default. Model ids are
+`vendor/model`; vision models such as GPT-5.4, Claude Sonnet 5 and Qwen3 VL take the screenshots:
+
+```python
+from windows_use.providers.martllm import ChatMartLLM
+
+llm = ChatMartLLM(model="openai/gpt-5.4-mini")
 ```
 
 ## 🧰 Agent Configuration
